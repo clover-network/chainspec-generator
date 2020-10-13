@@ -1,0 +1,28 @@
+{
+  "name": "@clover-network/chainspec-generator",
+  "version": "0.1.0",
+  "description": "utility to genereate chainspecs",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/clover-network/chainspec-generator.git"
+  },
+  "keywords": [
+    "substrate",
+    "chainspec"
+  ],
+  "author": "pangwa",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/clover-network/chainspec-generator/issues"
+  },
+  "homepage": "https://github.com/clover-network/chainspec-generator#readme",
+  "dependencies": {
+    "fs-extra": "^9.0.1",
+    "yaml": "^1.10.0",
+    "yargs": "^16.0.3"
+  }
+}
