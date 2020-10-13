@@ -21,8 +21,10 @@
   },
   "homepage": "https://github.com/clover-network/chainspec-generator#readme",
   "dependencies": {
+    "bluebird": "^3.7.2",
+    "chalk": "^4.1.0",
     "fs-extra": "^9.0.1",
-    "yaml": "^1.10.0",
+    "js-yaml": "^3.14.0",
     "yargs": "^16.0.3"
   }
 }
