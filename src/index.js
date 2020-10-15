@@ -21,6 +21,7 @@ function parseCmd() {
 }
 
 const chainSpecModifiers = {
+  naming: updateNaming,
   balance: updateBalances,
   tokens: updateTokens,
   session: updateSession,
@@ -31,13 +32,13 @@ const chainSpecModifiers = {
 async function main() {
   const argv = parseCmd()
   try {
-    const config = await fse.readJson(argv.i)
+    let config = await fse.readJson(argv.i)
     console.log(chalk.green(`config file: "${argv.i}" loaded`))
     const chainConfig = yaml.safeLoad(await fse.readFile(argv.c, 'utf8'))
     console.log(chalk.green(`chain config file: "${argv.i}" loaded`))
     _.forEach(chainSpecModifiers, (fn, name) => {
       console.log(chalk.green('updating chain config: ' +  chalk.magenta(`${name}`)))
-      fn(config, chainConfig)
+      config = fn(config, chainConfig)
     })
 
     console.log(chalk.green('done updating chain config, saving it to ' + chalk.magenta(`${argv.o}`)))
@@ -50,6 +51,16 @@ async function main() {
     } else {
       console.log(chalk.red('error executing command'), ex)
     }
+  }
+}
+
+function updateNaming(config, chainConfig) {
+  const { name, id, chainType } = chainConfig.meta
+  return {
+    ...config,
+    name,
+    id,
+    chainType,
   }
 }
 
@@ -68,6 +79,7 @@ function updateBalances(config, chainConfig) {
       account.balance
     ]
   })
+  return config
 }
 
 function updateTokens(config, chainConfig) {
@@ -75,6 +87,8 @@ function updateTokens(config, chainConfig) {
     .map((account) => {
       return _.map(account.tokens, (amount, name) => [account.address, name, amount])
     }).flatten().value()
+
+  return config
 }
 
 function updateSudo(config, chainConfig) {
@@ -87,6 +101,8 @@ function updateSudo(config, chainConfig) {
   config.genesis.runtime.palletSudo = {
     key: rootKey.value(),
   }
+
+  return config
 }
 
 function updateSession(config, chainConfig) {
@@ -103,6 +119,8 @@ function updateSession(config, chainConfig) {
       babe: babeId,
     }]
   })
+
+  return config
 }
 
 function updateStaking(config, chainConfig) {
@@ -126,6 +144,8 @@ function updateStaking(config, chainConfig) {
       accountData.role,
     ]
   })
+
+  return config
 }
 
 main()
