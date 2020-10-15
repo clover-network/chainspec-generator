@@ -62,7 +62,7 @@ function getAccountOrFail(chainConfig, accountName) {
 }
 
 function updateBalances(config, chainConfig) {
-  config.genesis.runtime.palletBalances = _.map(chainConfig.accounts, (account) => {
+  config.genesis.runtime.palletBalances.balances = _.map(chainConfig.accounts, (account) => {
     return [
       account.address,
       account.balance
@@ -90,7 +90,7 @@ function updateSudo(config, chainConfig) {
 }
 
 function updateSession(config, chainConfig) {
-  config.genesis.runtime.palletSession = _.map(chainConfig.nodes, (node, key) => {
+  config.genesis.runtime.palletSession.keys = _.map(chainConfig.nodes, (node, key) => {
     let account = getAccountOrFail(chainConfig, node.account)
     // stash, ctrl, babeid, grandpa id
     const grandpaId = _.get(account, 'grandpa.address')
