@@ -21,6 +21,9 @@
   },
   "homepage": "https://github.com/clover-network/chainspec-generator#readme",
   "dependencies": {
+    "@polkadot/keyring": "^3.5.1",
+    "@polkadot/util": "^3.5.1",
+    "@polkadot/util-crypto": "^3.5.1",
     "bluebird": "^3.7.2",
     "chalk": "^4.1.0",
     "fs-extra": "^9.0.1",

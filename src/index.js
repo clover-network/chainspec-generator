@@ -4,6 +4,12 @@ const yargs = require('yargs/yargs')
 const yaml = require('js-yaml')
 const fse = require('fs-extra')
 const _ = require('lodash')
+const { u8aToHex } = require('@polkadot/util')
+const { cryptoWaitReady } = require('@polkadot/util-crypto')
+const { Keyring } = require('@polkadot/keyring')
+
+let keyring = null
+let keyringSr25519 = null
 
 function parseCmd() {
   const argv = yargs(process.argv.slice(2))
@@ -21,6 +27,7 @@ function parseCmd() {
 }
 
 const chainSpecModifiers = {
+  bootnodes: updateBootNodes,
   naming: updateNaming,
   balance: updateBalances,
   tokens: updateTokens,
@@ -30,6 +37,11 @@ const chainSpecModifiers = {
 }
 
 async function main() {
+  await cryptoWaitReady()
+
+  keyring = new Keyring( { type: 'ed25519'})
+  keyringSr25519 = new Keyring( { type: 'sr25519'})
+
   const argv = parseCmd()
   try {
     let config = await fse.readJson(argv.i)
@@ -54,6 +66,26 @@ async function main() {
   }
 }
 
+function loadKeyFromMemo(memo) {
+  const keyEd25519 = keyring.addFromMnemonic(memo)
+  const keySr25519 = keyringSr25519.addFromMnemonic(memo)
+  return {
+    address: keySr25519.address,
+    pubKeyEd25519: u8aToHex(keyEd25519.publicKey),
+    pubKeySr25519: u8aToHex(keyEd25519.publicKey),
+  }
+}
+
+function updateBootNodes(config, chainConfig) {
+  const bootNodes = _.map(chainConfig.nodes, (node, name) => {
+    return `/dns/${node.host}/tcp/30334/p2p/${node.id}`
+  })
+  return {
+    ...config,
+    bootNodes,
+  }
+}
+
 function updateNaming(config, chainConfig) {
   const { name, id, chainType } = chainConfig.meta
   return {
@@ -69,13 +101,18 @@ function getAccountOrFail(chainConfig, accountName) {
   if (_.isEmpty(account)) {
     throw `invalid account "${accountName}"`
   }
-  return account
+  const accountData = loadKeyFromMemo(account.seed)
+  return {
+    ...account,
+    accountData,
+  }
 }
 
 function updateBalances(config, chainConfig) {
   config.genesis.runtime.palletBalances.balances = _.map(chainConfig.accounts, (account) => {
+    const data = loadKeyFromMemo(account.seed)
     return [
-      account.address,
+      data.address,
       account.balance
     ]
   })
@@ -85,7 +122,8 @@ function updateBalances(config, chainConfig) {
 function updateTokens(config, chainConfig) {
   config.genesis.runtime.ormlTokens.endowedAccounts = _.chain(chainConfig.accounts)
     .map((account) => {
-      return _.map(account.tokens, (amount, name) => [account.address, name, amount])
+      const data = loadKeyFromMemo(account.seed)
+      return _.map(account.tokens, (amount, name) => [data.address, name, amount])
     }).flatten().value()
 
   return config
@@ -94,7 +132,7 @@ function updateTokens(config, chainConfig) {
 function updateSudo(config, chainConfig) {
   const sudoAccount = _.get(chainConfig, 'sudo_account', '')
   const rootAccount = getAccountOrFail(chainConfig, sudoAccount)
-  const rootKey = _.chain(rootAccount).get('address');
+  const rootKey = _.chain(rootAccount).get('accountData.address');
   if (rootKey.isEmpty().value()) {
     throw `invalid sudo account "${sudoAccount}"`
   }
@@ -109,12 +147,15 @@ function updateSession(config, chainConfig) {
   config.genesis.runtime.palletSession.keys = _.map(chainConfig.nodes, (node, key) => {
     let account = getAccountOrFail(chainConfig, node.account)
     // stash, ctrl, babeid, grandpa id
-    const grandpaId = _.get(account, 'grandpa.address')
-    const babeId = _.get(account, 'babe.address')
+    const grandpa = loadKeyFromMemo(account.grandpa.seed)
+    const grandpaId = _.get(grandpa, 'address')
+    const babe = loadKeyFromMemo(_.get(account, 'babe.seed'))
+    const babeId = babe.address
     if (_.isEmpty(grandpaId) || _.isEmpty(babeId)) {
       throw `invalid grandpa/babe config for node: "${key}", the account is: "${node.account}"`
     }
-    return [account.address, account.address,  {
+    const address = account.accountData.address
+    return [address, address,  {
       grandpa: grandpaId,
       babe: babeId,
     }]
@@ -128,7 +169,7 @@ function updateStaking(config, chainConfig) {
     return account.role === 'Validator'
   }).map((accountData) => {
     const account = getAccountOrFail(chainConfig, accountData.stash)
-    return account.address
+    return account.accountData.address
   }).value()
 
   config.genesis.runtime.palletStaking.invulnerables = stakingAccounts
@@ -138,8 +179,8 @@ function updateStaking(config, chainConfig) {
     const stashAccount = getAccountOrFail(chainConfig, accountData.stash)
     const controllerAccount = getAccountOrFail(chainConfig, accountData.controller)
     return [
-      stashAccount.address,
-      controllerAccount.address,
+      stashAccount.accountData.address,
+      controllerAccount.accountData.address,
       100000000000000, // 100 * 10^12
       accountData.role,
     ]
